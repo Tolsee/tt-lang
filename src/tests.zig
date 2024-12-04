@@ -2,14 +2,6 @@ const std = @import("std");
 const lexer = @import("lexer.zig");
 const parser = @import("parser.zig");
 
-pub fn main() !void {
-    const source = "IF+-123 foo*THEN/";
-    var l = lexer.Lexer.init(source);
-    var p = parser.Parser.init(l);
-
-    try p.parse();
-}
-
 test "parser test" {
     const source = "PRINT \"Hello, World!\"\n";
     var l = lexer.Lexer.init(source);
