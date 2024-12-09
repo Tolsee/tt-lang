@@ -2,10 +2,10 @@ const std = @import("std");
 const lexer = @import("lexer.zig");
 
 pub const Parser = struct {
-    lexer: lexer.Lexer,
+    lexer: *lexer.Lexer,
     current_token: lexer.Token,
 
-    pub fn init(l: lexer.Lexer) Parser {
+    pub fn init(l: *lexer.Lexer) Parser {
         return Parser{
             .lexer = l,
             .current_token = l.getToken(),
@@ -17,16 +17,6 @@ pub const Parser = struct {
     }
 
     pub fn parse(self: *Parser) !void {
-        while (self.current_token.type != .EOF) {
-            std.debug.print("Parsed Token: {s: <10} | Text: {s}\n", .{
-                @tagName(self.current_token.type),
-                self.current_token.text,
-            });
-            self.nextToken();
-        }
-    }
-
-    fn parseProgram(self: *Parser) !void {
         while (self.current_token.type != .EOF) {
             try self.parseStatement();
         }
@@ -93,7 +83,7 @@ pub const Parser = struct {
 
     fn parseComparison(self: *Parser) !void {
         try self.parseExpression();
-        while (self.current_token.type == .EQEQ or self.current_token.type == .NOTEQ or self.current_token.type == .GT or self.current_token.type == .GTEQ or self.current_token.type == .LT or self.current_token.type == .LTEQ) {
+        while (self.isComparisonOperator()) {
             self.nextToken();
             try self.parseExpression();
         }
@@ -141,5 +131,9 @@ pub const Parser = struct {
             return error.InvalidSyntax;
         }
         self.nextToken();
+    }
+
+    fn isComparisonOperator(self: *Parser) bool {
+        return self.current_token.type == .EQEQ or self.current_token.type == .NOTEQ or self.current_token.type == .GT or self.current_token.type == .GTEQ or self.current_token.type == .LT or self.current_token.type == .LTEQ;
     }
 };
