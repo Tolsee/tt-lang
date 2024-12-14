@@ -28,7 +28,6 @@ pub const Parser = struct {
     fn parseStatement(self: *Parser) !ast.AST.Node {
         switch (self.current_token.type) {
             .PRINT => {
-                std.debug.print("found PRINT\n", .{});
                 self.nextToken();
                 if (self.current_token.type == .STRING) {
                     const value = ast.AST.constructLiteral(self.current_token.text);

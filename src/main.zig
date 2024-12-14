@@ -9,7 +9,9 @@ pub fn main() !void {
     }
     const allocator = gpa.allocator();
 
-    const source = "PRINT \"Hello, World!\"\n";
+    const source = try allocator.dupe(u8, "PRINT \"Hello, World!\"\n");
+    defer allocator.free(source);
+
     var c = compiler.Compiler.init(allocator, source, "out.c");
     try c.compile();
 }

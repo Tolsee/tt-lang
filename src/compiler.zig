@@ -5,20 +5,23 @@ const emitter = @import("emitter.zig");
 const ast_lib = @import("ast.zig");
 
 pub const Compiler = struct {
+    lexer: lexer.Lexer,
     parser: parser.Parser,
     emitter: emitter.Emitter,
     allocator: std.mem.Allocator,
+    source: []const u8,
 
     pub fn init(allocator: std.mem.Allocator, source: []const u8, outputPath: []const u8) Compiler {
-        var l = lexer.Lexer.init(source);
-        const e = emitter.Emitter.init(outputPath);
-        const p = parser.Parser.init(&l);
-
-        return Compiler{
-            .parser = p,
-            .emitter = e,
+        var compiler = Compiler{
+            .lexer = lexer.Lexer.init(source),
+            .parser = undefined,
+            .emitter = emitter.Emitter.init(outputPath),
             .allocator = allocator,
+            .source = source,
         };
+
+        compiler.parser = parser.Parser.init(&compiler.lexer);
+        return compiler;
     }
 
     pub fn compile(self: *Compiler) !void {
