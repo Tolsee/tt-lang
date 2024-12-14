@@ -1,21 +1,18 @@
 const std = @import("std");
-const lexer = @import("lexer.zig");
-const parser = @import("parser.zig");
+const compiler = @import("compiler.zig");
 
 pub fn main() !void {
     const source = "IFTHENMINUS+-123 foo*THEN/";
-    var l = lexer.Lexer.init(source);
-    var p = parser.Parser.init(&l);
+    var c = compiler.Compiler.init(source, "out.c");
 
-    try p.parse();
+    try c.compile();
 }
 
 test "parser test" {
     const source = "PRINT \"Hello, World!\"\n";
-    var l = lexer.Lexer.init(source);
-    var p = parser.Parser.init(&l);
+    var c = compiler.Compiler.init(source, "out.c");
 
-    try p.parse();
+    try c.compile();
 }
 
 test "fibonacci program test" {
@@ -32,10 +29,9 @@ test "fibonacci program test" {
         "    LET b = c\n" ++
         "    LET nums = nums - 1\n" ++
         "ENDWHILE\n";
-    var l = lexer.Lexer.init(source);
-    var p = parser.Parser.init(&l);
+    var c = compiler.Compiler.init(source, "out.c");
 
-    try p.parse();
+    try c.compile();
 }
 
 test "all language grammar test" {
@@ -50,8 +46,7 @@ test "all language grammar test" {
         "    PRINT x\n" ++
         "    LET x = x + 1\n" ++
         "ENDWHILE\n";
-    var l = lexer.Lexer.init(source);
-    var p = parser.Parser.init(&l);
+    var c = compiler.Compiler.init(source, "out.c");
 
-    try p.parse();
+    try c.compile();
 }

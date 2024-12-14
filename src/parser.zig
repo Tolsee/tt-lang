@@ -16,107 +16,133 @@ pub const Parser = struct {
         self.current_token = self.lexer.getToken();
     }
 
-    pub fn parse(self: *Parser) !void {
+    pub fn parse(self: *Parser) ![]const u8 {
+        var ast = std.ArrayList([]const u8).init(std.heap.page_allocator);
         while (self.current_token.type != .EOF) {
-            try self.parseStatement();
+            try ast.append(try self.parseStatement());
         }
+        return ast.toOwnedSlice();
     }
 
-    fn parseStatement(self: *Parser) !void {
+    fn parseStatement(self: *Parser) ![]const u8 {
+        var statement = std.ArrayList([]const u8).init(std.heap.page_allocator);
         switch (self.current_token.type) {
             .PRINT => {
                 self.nextToken();
                 if (self.current_token.type == .STRING) {
+                    try statement.append(self.current_token.text);
                     self.nextToken();
                 } else {
-                    try self.parseExpression();
+                    try statement.append(try self.parseExpression());
                 }
                 try self.expectNewline();
             },
             .IF => {
                 self.nextToken();
-                try self.parseComparison();
+                try statement.append(try self.parseComparison());
                 try self.expectToken(.THEN);
                 try self.expectNewline();
                 while (self.current_token.type != .ENDIF) {
-                    try self.parseStatement();
+                    try statement.append(try self.parseStatement());
                 }
                 try self.expectToken(.ENDIF);
                 try self.expectNewline();
             },
             .WHILE => {
                 self.nextToken();
-                try self.parseComparison();
+                try statement.append(try self.parseComparison());
                 try self.expectToken(.REPEAT);
                 try self.expectNewline();
                 while (self.current_token.type != .ENDWHILE) {
-                    try self.parseStatement();
+                    try statement.append(try self.parseStatement());
                 }
                 try self.expectToken(.ENDWHILE);
                 try self.expectNewline();
             },
             .LABEL => {
                 self.nextToken();
+                try statement.append(self.current_token.text);
                 try self.expectToken(.IDENT);
                 try self.expectNewline();
             },
             .GOTO => {
                 self.nextToken();
+                try statement.append(self.current_token.text);
                 try self.expectToken(.IDENT);
                 try self.expectNewline();
             },
             .LET => {
                 self.nextToken();
+                try statement.append(self.current_token.text);
                 try self.expectToken(.IDENT);
                 try self.expectToken(.EQ);
-                try self.parseExpression();
+                try statement.append(try self.parseExpression());
                 try self.expectNewline();
             },
             .INPUT => {
                 self.nextToken();
+                try statement.append(self.current_token.text);
                 try self.expectToken(.IDENT);
                 try self.expectNewline();
             },
             else => return error.InvalidSyntax,
         }
+        return statement.toOwnedSlice();
     }
 
-    fn parseComparison(self: *Parser) !void {
-        try self.parseExpression();
+    fn parseComparison(self: *Parser) ![]const u8 {
+        var comparison = std.ArrayList([]const u8).init(std.heap.page_allocator);
+        try comparison.append(try self.parseExpression());
         while (self.isComparisonOperator()) {
+            try comparison.append(self.current_token.text);
             self.nextToken();
-            try self.parseExpression();
+            try comparison.append(try self.parseExpression());
         }
+        return comparison.toOwnedSlice();
     }
 
-    fn parseExpression(self: *Parser) !void {
-        try self.parseTerm();
+    fn parseExpression(self: *Parser) ![]const u8 {
+        var expression = std.ArrayList([]const u8).init(std.heap.page_allocator);
+        try expression.append(try self.parseTerm());
         while (self.current_token.type == .PLUS or self.current_token.type == .MINUS) {
+            try expression.append(self.current_token.text);
             self.nextToken();
-            try self.parseTerm();
+            try expression.append(try self.parseTerm());
         }
+        return expression.toOwnedSlice();
     }
 
-    fn parseTerm(self: *Parser) !void {
-        try self.parseUnary();
+    fn parseTerm(self: *Parser) ![]const u8 {
+        var term = std.ArrayList([]const u8).init(std.heap.page_allocator);
+        try term.append(try self.parseUnary());
         while (self.current_token.type == .ASTERISK or self.current_token.type == .SLASH) {
+            try term.append(self.current_token.text);
             self.nextToken();
-            try self.parseUnary();
+            try term.append(try self.parseUnary());
         }
+        return term.toOwnedSlice();
     }
 
-    fn parseUnary(self: *Parser) !void {
+    fn parseUnary(self: *Parser) ![]const u8 {
+        var unary = std.ArrayList([]const u8).init(std.heap.page_allocator);
         if (self.current_token.type == .PLUS or self.current_token.type == .MINUS) {
+            try unary.append(self.current_token.text);
             self.nextToken();
         }
-        try self.parsePrimary();
+        try unary.append(try self.parsePrimary());
+        return unary.toOwnedSlice();
     }
 
-    fn parsePrimary(self: *Parser) !void {
+    fn parsePrimary(self: *Parser) ![]const u8 {
+        var primary = std.ArrayList([]const u8).init(std.heap.page_allocator);
         switch (self.current_token.type) {
-            .NUMBER, .IDENT => self.nextToken(),
+            .NUMBER, .IDENT => {
+                try primary.append(self.current_token.text);
+                self.nextToken();
+            },
             else => return error.InvalidSyntax,
         }
+        return primary.toOwnedSlice();
     }
 
     fn expectToken(self: *Parser, expected: lexer.TokenType) !void {
