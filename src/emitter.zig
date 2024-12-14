@@ -2,35 +2,35 @@ const std = @import("std");
 
 pub const Emitter = struct {
     fullPath: []const u8,
-    header: []u8,
-    code: []u8,
+    header: std.ArrayList(u8),
+    code: std.ArrayList(u8),
 
     pub fn init(fullPath: []const u8) Emitter {
         return Emitter{
             .fullPath = fullPath,
-            .header = "",
-            .code = "",
+            .header = std.ArrayList(u8).init(std.heap.page_allocator),
+            .code = std.ArrayList(u8).init(std.heap.page_allocator),
         };
     }
 
     pub fn emit(self: *Emitter, code: []const u8) void {
-        self.code = std.mem.concat(self.code, code);
+        _ = self.code.appendSlice(code);
     }
 
     pub fn emitLine(self: *Emitter, code: []const u8) void {
-        self.code = std.mem.concat(self.code, code);
-        self.code = std.mem.concat(self.code, "\n");
+        _ = self.code.appendSlice(code);
+        _ = self.code.appendSlice("\n");
     }
 
     pub fn headerLine(self: *Emitter, code: []const u8) void {
-        self.header = std.mem.concat(self.header, code);
-        self.header = std.mem.concat(self.header, "\n");
+        _ = self.header.appendSlice(code);
+        _ = self.header.appendSlice("\n");
     }
 
     pub fn writeFile(self: *Emitter) !void {
         var outputFile = try std.fs.cwd().createFile(self.fullPath, .{});
         defer outputFile.close();
-        try outputFile.write(self.header);
-        try outputFile.write(self.code);
+        try outputFile.write(self.header.toOwnedSlice());
+        try outputFile.write(self.code.toOwnedSlice());
     }
 };

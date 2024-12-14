@@ -1,5 +1,6 @@
 const std = @import("std");
 const lexer = @import("lexer.zig");
+const ast = @import("ast.zig");
 
 pub const Parser = struct {
     lexer: *lexer.Lexer,
@@ -16,133 +17,144 @@ pub const Parser = struct {
         self.current_token = self.lexer.getToken();
     }
 
-    pub fn parse(self: *Parser) ![]const u8 {
-        var ast = std.ArrayList([]const u8).init(std.heap.page_allocator);
+    pub fn parse(self: *Parser) ![]ast.AST.Node {
+        var ast_nodes = std.ArrayList(ast.AST.Node).init(std.heap.page_allocator);
         while (self.current_token.type != .EOF) {
-            try ast.append(try self.parseStatement());
+            try ast_nodes.append(try self.parseStatement());
         }
-        return ast.toOwnedSlice();
+        return ast_nodes.toOwnedSlice();
     }
 
-    fn parseStatement(self: *Parser) ![]const u8 {
-        var statement = std.ArrayList([]const u8).init(std.heap.page_allocator);
+    fn parseStatement(self: *Parser) !ast.AST.Node {
         switch (self.current_token.type) {
             .PRINT => {
                 self.nextToken();
                 if (self.current_token.type == .STRING) {
-                    try statement.append(self.current_token.text);
+                    const value = ast.AST.constructLiteral(self.current_token.text);
                     self.nextToken();
+                    return ast.AST.constructPrint(value);
                 } else {
-                    try statement.append(try self.parseExpression());
+                    const value = try self.parseExpression();
+                    return ast.AST.constructPrint(value);
                 }
-                try self.expectNewline();
             },
             .IF => {
                 self.nextToken();
-                try statement.append(try self.parseComparison());
+                const condition = try self.parseComparison();
                 try self.expectToken(.THEN);
                 try self.expectNewline();
+                var body = std.ArrayList(ast.AST.Statement).init(std.heap.page_allocator);
                 while (self.current_token.type != .ENDIF) {
-                    try statement.append(try self.parseStatement());
+                    try body.append(try self.parseStatement().Statement);
                 }
                 try self.expectToken(.ENDIF);
                 try self.expectNewline();
+                return ast.AST.constructIf(condition, body.toOwnedSlice());
             },
             .WHILE => {
                 self.nextToken();
-                try statement.append(try self.parseComparison());
+                const condition = try self.parseComparison();
                 try self.expectToken(.REPEAT);
                 try self.expectNewline();
+                var body = std.ArrayList(ast.AST.Statement).init(std.heap.page_allocator);
                 while (self.current_token.type != .ENDWHILE) {
-                    try statement.append(try self.parseStatement());
+                    try body.append(try self.parseStatement().Statement);
                 }
                 try self.expectToken(.ENDWHILE);
                 try self.expectNewline();
+                return ast.AST.constructWhile(condition, body.toOwnedSlice());
             },
             .LABEL => {
                 self.nextToken();
-                try statement.append(self.current_token.text);
+                const name = self.current_token.text;
                 try self.expectToken(.IDENT);
                 try self.expectNewline();
+                return ast.AST.constructLabel(name);
             },
             .GOTO => {
                 self.nextToken();
-                try statement.append(self.current_token.text);
+                const label = self.current_token.text;
                 try self.expectToken(.IDENT);
                 try self.expectNewline();
+                return ast.AST.constructGoto(label);
             },
             .LET => {
                 self.nextToken();
-                try statement.append(self.current_token.text);
+                const variable = ast.AST.constructIdentifier(self.current_token.text);
                 try self.expectToken(.IDENT);
                 try self.expectToken(.EQ);
-                try statement.append(try self.parseExpression());
+                const value = try self.parseExpression();
                 try self.expectNewline();
+                return ast.AST.constructLet(variable, value);
             },
             .INPUT => {
                 self.nextToken();
-                try statement.append(self.current_token.text);
+                const variable = ast.AST.constructIdentifier(self.current_token.text);
                 try self.expectToken(.IDENT);
                 try self.expectNewline();
+                return ast.AST.constructInput(variable);
             },
             else => return error.InvalidSyntax,
         }
-        return statement.toOwnedSlice();
     }
 
-    fn parseComparison(self: *Parser) ![]const u8 {
-        var comparison = std.ArrayList([]const u8).init(std.heap.page_allocator);
-        try comparison.append(try self.parseExpression());
+    fn parseComparison(self: *Parser) !ast.AST.Expression {
+        var left = try self.parseExpression();
         while (self.isComparisonOperator()) {
-            try comparison.append(self.current_token.text);
+            const operator = self.current_token.text;
             self.nextToken();
-            try comparison.append(try self.parseExpression());
+            const right = try self.parseExpression();
+            left = ast.AST.constructBinaryOp(left, operator, right).Expression;
         }
-        return comparison.toOwnedSlice();
+        return left;
     }
 
-    fn parseExpression(self: *Parser) ![]const u8 {
-        var expression = std.ArrayList([]const u8).init(std.heap.page_allocator);
-        try expression.append(try self.parseTerm());
+    fn parseExpression(self: *Parser) !ast.AST.Expression {
+        var left = try self.parseTerm();
         while (self.current_token.type == .PLUS or self.current_token.type == .MINUS) {
-            try expression.append(self.current_token.text);
+            const operator = self.current_token.text;
             self.nextToken();
-            try expression.append(try self.parseTerm());
+            const right = try self.parseTerm();
+            left = ast.AST.constructBinaryOp(left, operator, right).Expression;
         }
-        return expression.toOwnedSlice();
+        return left;
     }
 
-    fn parseTerm(self: *Parser) ![]const u8 {
-        var term = std.ArrayList([]const u8).init(std.heap.page_allocator);
-        try term.append(try self.parseUnary());
+    fn parseTerm(self: *Parser) !ast.AST.Expression {
+        var left = try self.parseUnary();
         while (self.current_token.type == .ASTERISK or self.current_token.type == .SLASH) {
-            try term.append(self.current_token.text);
+            const operator = self.current_token.text;
             self.nextToken();
-            try term.append(try self.parseUnary());
+            const right = try self.parseUnary();
+            left = ast.AST.constructBinaryOp(left, operator, right).Expression;
         }
-        return term.toOwnedSlice();
+        return left;
     }
 
-    fn parseUnary(self: *Parser) ![]const u8 {
-        var unary = std.ArrayList([]const u8).init(std.heap.page_allocator);
+    fn parseUnary(self: *Parser) !ast.AST.Expression {
         if (self.current_token.type == .PLUS or self.current_token.type == .MINUS) {
-            try unary.append(self.current_token.text);
+            const operator = self.current_token.text;
             self.nextToken();
+            const operand = try self.parsePrimary();
+            return ast.AST.constructUnaryOp(operator, operand).Expression;
         }
-        try unary.append(try self.parsePrimary());
-        return unary.toOwnedSlice();
+        return try self.parsePrimary();
     }
 
-    fn parsePrimary(self: *Parser) ![]const u8 {
-        var primary = std.ArrayList([]const u8).init(std.heap.page_allocator);
+    fn parsePrimary(self: *Parser) !ast.AST.Expression {
         switch (self.current_token.type) {
-            .NUMBER, .IDENT => {
-                try primary.append(self.current_token.text);
+            .NUMBER => {
+                const value = ast.AST.constructLiteral(self.current_token.text);
                 self.nextToken();
+                return value;
+            },
+            .IDENT => {
+                const name = ast.AST.constructIdentifier(self.current_token.text);
+                self.nextToken();
+                return name;
             },
             else => return error.InvalidSyntax,
         }
-        return primary.toOwnedSlice();
     }
 
     fn expectToken(self: *Parser, expected: lexer.TokenType) !void {
