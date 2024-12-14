@@ -2,7 +2,7 @@ const std = @import("std");
 const lexer = @import("lexer.zig");
 const parser = @import("parser.zig");
 const emitter = @import("emitter.zig");
-const ast = @import("ast.zig");
+const ast_lib = @import("ast.zig");
 
 pub const Compiler = struct {
     lexer: lexer.Lexer,
@@ -11,8 +11,9 @@ pub const Compiler = struct {
 
     pub fn init(source: []const u8, outputPath: []const u8) Compiler {
         var l = lexer.Lexer.init(source);
-        var e = emitter.Emitter.init(outputPath);
-        var p = parser.Parser.init(&l);
+        const e = emitter.Emitter.init(outputPath);
+        const p = parser.Parser.init(&l);
+
         return Compiler{
             .lexer = l,
             .parser = p,
@@ -26,7 +27,7 @@ pub const Compiler = struct {
         try self.emitter.writeFile();
     }
 
-    fn emit(self: *Compiler, ast: []const u8) void {
+    fn emit(self: *Compiler, ast: ast_lib.AST) void {
         self.emitter.headerLine("#include <stdio.h>");
         self.emitter.headerLine("int main(void){");
         self.emitter.emit(ast);
@@ -34,12 +35,12 @@ pub const Compiler = struct {
         self.emitter.emitLine("}");
     }
 
-    fn emitNode(self: *Compiler, node: ast.AST.Node) void {
+    fn emitNode(self: *Compiler, node: ast_lib.AST.Node) void {
         switch (node) {
             .Statement => |stmt| switch (stmt) {
                 .Print => |print| {
                     self.emitter.emit("printf(\"%.2f\\n\", (float)(");
-                    self.emitNode(ast.AST.Node{ .Expression = print.value });
+                    self.emitNode(ast_lib.AST.Node{ .Expression = print.value });
                     self.emitter.emitLine("));");
                 },
                 .Input => |input| {
@@ -50,24 +51,24 @@ pub const Compiler = struct {
                 },
                 .Let => |let| {
                     self.emitter.emit(let.variable.name ++ " = ");
-                    self.emitNode(ast.AST.Node{ .Expression = let.value });
+                    self.emitNode(ast_lib.AST.Node{ .Expression = let.value });
                     self.emitter.emitLine(";");
                 },
                 .If => |if_stmt| {
                     self.emitter.emit("if(");
-                    self.emitNode(ast.AST.Node{ .Expression = if_stmt.condition });
+                    self.emitNode(ast_lib.AST.Node{ .Expression = if_stmt.condition });
                     self.emitter.emitLine("){");
-                    for (if_stmt.body) |stmt| {
-                        self.emitNode(ast.AST.Node{ .Statement = stmt });
+                    for (if_stmt.body) |statement| {
+                        self.emitNode(ast_lib.AST.Node{ .Statement = statement });
                     }
                     self.emitter.emitLine("}");
                 },
                 .While => |while_stmt| {
                     self.emitter.emit("while(");
-                    self.emitNode(ast.AST.Node{ .Expression = while_stmt.condition });
+                    self.emitNode(ast_lib.AST.Node{ .Expression = while_stmt.condition });
                     self.emitter.emitLine("){");
-                    for (while_stmt.body) |stmt| {
-                        self.emitNode(ast.AST.Node{ .Statement = stmt });
+                    for (while_stmt.body) |statement| {
+                        self.emitNode(ast_lib.AST.Node{ .Statement = statement });
                     }
                     self.emitter.emitLine("}");
                 },
@@ -80,13 +81,13 @@ pub const Compiler = struct {
             },
             .Expression => |expr| switch (expr) {
                 .BinaryOp => |bin_op| {
-                    self.emitNode(ast.AST.Node{ .Expression = bin_op.left });
+                    self.emitNode(ast_lib.AST.Node{ .Expression = bin_op.left });
                     self.emitter.emit(bin_op.operator);
-                    self.emitNode(ast.AST.Node{ .Expression = bin_op.right });
+                    self.emitNode(ast_lib.AST.Node{ .Expression = bin_op.right });
                 },
                 .UnaryOp => |unary_op| {
                     self.emitter.emit(unary_op.operator);
-                    self.emitNode(ast.AST.Node{ .Expression = unary_op.operand });
+                    self.emitNode(ast_lib.AST.Node{ .Expression = unary_op.operand });
                 },
                 .Literal => |literal| {
                     self.emitter.emit(literal.value);

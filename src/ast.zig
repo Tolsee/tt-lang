@@ -126,14 +126,14 @@ pub const AST = struct {
                 .Let => |let| self.traverse(let.value, visit),
                 .If => |if_stmt| {
                     self.traverse(if_stmt.condition, visit);
-                    for (if_stmt.body) |stmt| {
-                        self.traverse(Node{ .Statement = stmt }, visit);
+                    for (if_stmt.body) |statement| {
+                        self.traverse(Node{ .Statement = statement }, visit);
                     }
                 },
                 .While => |while_stmt| {
                     self.traverse(while_stmt.condition, visit);
-                    for (while_stmt.body) |stmt| {
-                        self.traverse(Node{ .Statement = stmt }, visit);
+                    for (while_stmt.body) |statement| {
+                        self.traverse(Node{ .Statement = statement }, visit);
                     }
                 },
                 .Label => {},
