@@ -26,10 +26,10 @@ pub const Compiler = struct {
 
     pub fn compile(self: *Compiler) !void {
         const ast = try self.parser.parse();
-        var a = ast_lib.AST{};
-        for (ast) |node| {
-            a.debug(node);
-        }
+        // var a = ast_lib.AST{};
+        // for (ast) |node| {
+        //     a.debug(node);
+        // }
         try self.emit(ast);
         try self.emitter.writeFile();
     }

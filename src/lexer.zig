@@ -69,13 +69,17 @@ pub const Lexer = struct {
         };
     }
 
-    fn nextChar(self: *Self) void {
-        self.curr_pos += 1;
-        if (self.curr_pos >= self.source.len) {
+    fn setCurrentChar(self: *Self) void {
+        if (self.curr_pos + 1 >= self.source.len) {
             self.curr_char = 0;
         } else {
             self.curr_char = self.source[self.curr_pos];
         }
+    }
+
+    fn nextChar(self: *Self) void {
+        self.curr_pos += 1;
+        self.setCurrentChar();
     }
 
     fn peek(self: *Self) u8 {
@@ -110,11 +114,9 @@ pub const Lexer = struct {
 
     pub fn getToken(self: *Self) Token {
         // Reset curr_char based on position
-        if (self.curr_pos < self.source.len) {
-            self.curr_char = self.source[self.curr_pos];
-        } else {
-            self.curr_char = 0;
-        }
+        self.setCurrentChar();
+        std.debug.print("curr_pos: {d}, len: {d}\n", .{ self.curr_pos, self.source.len });
+        std.debug.print("curr_char: {d}\n", .{self.curr_char});
 
         self.skipWhitespace();
         self.skipComment();
@@ -194,10 +196,7 @@ pub const Lexer = struct {
             },
         };
 
-        std.debug.print("\n\ngetToken END\n", .{});
-        std.debug.print("curr_pos: {d}\n", .{self.curr_pos});
-        std.debug.print("curr_char: {d}\n", .{self.curr_char});
-        std.debug.print("peek: {d}\n", .{self.peek()});
+        std.debug.print("EOF: {}\n", .{token.type == .EOF});
 
         return token;
     }
