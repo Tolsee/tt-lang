@@ -28,11 +28,12 @@ pub const Parser = struct {
     fn parseStatement(self: *Parser) !ast.AST.Node {
         switch (self.current_token.type) {
             .PRINT => {
+                std.debug.print("found PRINT\n", .{});
                 self.nextToken();
                 if (self.current_token.type == .STRING) {
                     const value = ast.AST.constructLiteral(self.current_token.text);
                     self.nextToken();
-                    return ast.AST.constructPrint(&value);
+                    return ast.AST.constructPrint(&value.Expression);
                 } else {
                     const value = try self.parseExpression();
                     return ast.AST.constructPrint(value);
@@ -43,26 +44,30 @@ pub const Parser = struct {
                 const condition = try self.parseComparison();
                 try self.expectToken(.THEN);
                 try self.expectNewline();
-                var body = std.ArrayList(ast.AST.Node).init(std.heap.page_allocator);
+                var body = std.ArrayList(ast.AST.Statement).init(std.heap.page_allocator);
                 while (self.current_token.type != .ENDIF) {
-                    try body.append(try self.parseStatement());
+                    const entry = try self.parseStatement();
+                    try body.append(entry.Statement);
                 }
                 try self.expectToken(.ENDIF);
                 try self.expectNewline();
-                return ast.AST.constructIf(condition, body.toOwnedSlice());
+                const slice = try body.toOwnedSlice();
+                return ast.AST.constructIf(condition, &slice);
             },
             .WHILE => {
                 self.nextToken();
                 const condition = try self.parseComparison();
                 try self.expectToken(.REPEAT);
                 try self.expectNewline();
-                var body = std.ArrayList(ast.AST.Node).init(std.heap.page_allocator);
+                var body = std.ArrayList(ast.AST.Statement).init(std.heap.page_allocator);
                 while (self.current_token.type != .ENDWHILE) {
-                    try body.append(try self.parseStatement());
+                    const entry = try self.parseStatement();
+                    try body.append(entry.Statement);
                 }
                 try self.expectToken(.ENDWHILE);
                 try self.expectNewline();
-                return ast.AST.constructWhile(condition, body.toOwnedSlice());
+                const slice = try body.toOwnedSlice();
+                return ast.AST.constructWhile(condition, &slice);
             },
             .LABEL => {
                 self.nextToken();
@@ -85,73 +90,73 @@ pub const Parser = struct {
                 try self.expectToken(.EQ);
                 const value = try self.parseExpression();
                 try self.expectNewline();
-                return ast.AST.constructLet(variable, value);
+                return ast.AST.constructLet(&variable.Expression.Identifier, value);
             },
             .INPUT => {
                 self.nextToken();
                 const variable = ast.AST.constructIdentifier(self.current_token.text);
                 try self.expectToken(.IDENT);
                 try self.expectNewline();
-                return ast.AST.constructInput(variable);
+                return ast.AST.constructInput(&variable.Expression.Identifier);
             },
             else => return error.InvalidSyntax,
         }
     }
 
-    fn parseComparison(self: *Parser) !*ast.AST.Expression {
-        var left = try self.parseExpression();
+    fn parseComparison(self: *Parser) !*const ast.AST.Expression {
+        const left = try self.parseExpression();
         while (self.isComparisonOperator()) {
             const operator = self.current_token.text;
             self.nextToken();
             const right = try self.parseExpression();
-            left = &ast.AST.constructBinaryOp(left, operator, right).Expression.BinaryOp;
+            return &ast.AST.constructBinaryOp(left, operator, right).Expression;
         }
         return left;
     }
 
-    fn parseExpression(self: *Parser) !*ast.AST.Expression {
-        var left = try self.parseTerm();
+    fn parseExpression(self: *Parser) !*const ast.AST.Expression {
+        const left = try self.parseTerm();
         while (self.current_token.type == .PLUS or self.current_token.type == .MINUS) {
             const operator = self.current_token.text;
             self.nextToken();
             const right = try self.parseTerm();
-            left = &ast.AST.constructBinaryOp(left, operator, right).Expression.BinaryOp;
+            return &ast.AST.constructBinaryOp(left, operator, right).Expression;
         }
         return left;
     }
 
-    fn parseTerm(self: *Parser) !*ast.AST.Expression {
-        var left = try self.parseUnary();
+    fn parseTerm(self: *Parser) !*const ast.AST.Expression {
+        const left = try self.parseUnary();
         while (self.current_token.type == .ASTERISK or self.current_token.type == .SLASH) {
             const operator = self.current_token.text;
             self.nextToken();
             const right = try self.parseUnary();
-            left = &ast.AST.constructBinaryOp(left, operator, right).Expression.BinaryOp;
+            return &ast.AST.constructBinaryOp(left, operator, right).Expression;
         }
         return left;
     }
 
-    fn parseUnary(self: *Parser) !*ast.AST.Expression {
+    fn parseUnary(self: *Parser) !*const ast.AST.Expression {
         if (self.current_token.type == .PLUS or self.current_token.type == .MINUS) {
             const operator = self.current_token.text;
             self.nextToken();
             const operand = try self.parsePrimary();
-            return &ast.AST.constructUnaryOp(operator, operand).Expression.UnaryOp;
+            return &ast.AST.constructUnaryOp(operator, operand).Expression;
         }
         return try self.parsePrimary();
     }
 
-    fn parsePrimary(self: *Parser) !*ast.AST.Expression {
+    fn parsePrimary(self: *Parser) !*const ast.AST.Expression {
         switch (self.current_token.type) {
             .NUMBER => {
-                const value = ast.AST.constructLiteral(self.current_token.text);
+                var value = ast.AST.constructLiteral(self.current_token.text);
                 self.nextToken();
-                return &value;
+                return &value.Expression;
             },
             .IDENT => {
-                const name = ast.AST.constructIdentifier(self.current_token.text);
+                var name = ast.AST.constructIdentifier(self.current_token.text);
                 self.nextToken();
-                return &name;
+                return &name.Expression;
             },
             else => return error.InvalidSyntax,
         }

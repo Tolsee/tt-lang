@@ -13,24 +13,24 @@ pub const Emitter = struct {
         };
     }
 
-    pub fn emit(self: *Emitter, code: []const u8) void {
-        _ = self.code.appendSlice(code);
+    pub fn emit(self: *Emitter, code: []const u8) !void {
+        try self.code.appendSlice(code);
     }
 
-    pub fn emitLine(self: *Emitter, code: []const u8) void {
-        _ = self.code.appendSlice(code);
-        _ = self.code.appendSlice("\n");
+    pub fn emitLine(self: *Emitter, code: []const u8) !void {
+        try self.code.appendSlice(code);
+        try self.code.appendSlice("\n");
     }
 
-    pub fn headerLine(self: *Emitter, code: []const u8) void {
-        _ = self.header.appendSlice(code);
-        _ = self.header.appendSlice("\n");
+    pub fn headerLine(self: *Emitter, code: []const u8) !void {
+        try self.header.appendSlice(code);
+        try self.header.appendSlice("\n");
     }
 
     pub fn writeFile(self: *Emitter) !void {
         var outputFile = try std.fs.cwd().createFile(self.fullPath, .{});
         defer outputFile.close();
-        try outputFile.write(self.header.toOwnedSlice());
-        try outputFile.write(self.code.toOwnedSlice());
+        _ = try outputFile.write(try self.header.toOwnedSlice());
+        _ = try outputFile.write(try self.code.toOwnedSlice());
     }
 };

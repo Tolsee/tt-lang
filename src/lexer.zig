@@ -86,22 +86,33 @@ pub const Lexer = struct {
     }
 
     fn skipWhitespace(self: *Self) void {
-        while (self.curr_char != 0 and (self.curr_char == ' ' or self.curr_char == '\t')) {
-            self.nextChar();
+        while (self.curr_char != 0) {
+            switch (self.curr_char) {
+                ' ', '\t', '\n', '\r' => self.nextChar(),
+                else => break,
+            }
         }
     }
 
     fn skipComment(self: *Self) void {
         if (self.curr_char == '#') {
-            while (self.curr_char != 0 and self.curr_char != '\n') {
+            while (self.curr_char != 0) {
+                if (self.curr_char == '\n') {
+                    self.nextChar();
+                    break;
+                }
                 self.nextChar();
             }
         }
     }
 
     pub fn getToken(self: *Self) Token {
-        self.skipWhitespace();
-        self.skipComment();
+        // self.skipWhitespace();
+        // self.skipComment();
+        std.debug.print("source: {s}\n", .{self.source});
+        std.debug.print("curr_pos: {d}\n", .{self.curr_pos});
+        std.debug.print("curr_char: {d}\n", .{self.curr_char});
+        std.debug.print("peek: {d}\n", .{self.peek()});
 
         const token = switch (self.curr_char) {
             0 => Token.init(.EOF, ""),
@@ -182,6 +193,7 @@ pub const Lexer = struct {
     }
 
     fn getString(self: *Self) Token {
+        std.debug.print("getString\n", .{});
         const startPos = self.curr_pos;
         self.nextChar(); // Skip opening quote
 
@@ -216,6 +228,8 @@ pub const Lexer = struct {
 
         const text = self.source[startPos..self.curr_pos];
         const tokenType = checkIfKeyword(text);
+        std.debug.print("getIdentifier: {s}\n", .{text});
+        std.debug.print("curr_pos: {d}\n", .{self.curr_pos});
         return Token.init(tokenType, text);
     }
 };
