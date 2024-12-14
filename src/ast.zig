@@ -17,14 +17,14 @@ pub const AST = struct {
     };
 
     pub const Expression = union(enum) {
-        BinaryOp: BinaryOp,
-        UnaryOp: UnaryOp,
-        Literal: Literal,
-        Identifier: Identifier,
+        BinaryOp: *BinaryOp,
+        UnaryOp: *UnaryOp,
+        Literal: *Literal,
+        Identifier: *Identifier,
     };
 
     pub const Print = struct {
-        value: Expression,
+        value: *Expression,
     };
 
     pub const Input = struct {
@@ -33,16 +33,16 @@ pub const AST = struct {
 
     pub const Let = struct {
         variable: Identifier,
-        value: Expression,
+        value: *Expression,
     };
 
     pub const If = struct {
-        condition: Expression,
+        condition: *Expression,
         body: []Statement,
     };
 
     pub const While = struct {
-        condition: Expression,
+        condition: *Expression,
         body: []Statement,
     };
 
@@ -55,14 +55,14 @@ pub const AST = struct {
     };
 
     pub const BinaryOp = struct {
-        left: Expression,
+        left: *Expression,
         operator: []const u8,
-        right: Expression,
+        right: *Expression,
     };
 
     pub const UnaryOp = struct {
         operator: []const u8,
-        operand: Expression,
+        operand: *Expression,
     };
 
     pub const Literal = struct {
@@ -73,7 +73,7 @@ pub const AST = struct {
         name: []const u8,
     };
 
-    pub fn constructPrint(value: Expression) Node {
+    pub fn constructPrint(value: *Expression) Node {
         return Node{ .Statement = Statement{ .Print = Print{ .value = value } } };
     }
 
@@ -81,15 +81,15 @@ pub const AST = struct {
         return Node{ .Statement = Statement{ .Input = Input{ .variable = variable } } };
     }
 
-    pub fn constructLet(variable: Identifier, value: Expression) Node {
+    pub fn constructLet(variable: Identifier, value: *Expression) Node {
         return Node{ .Statement = Statement{ .Let = Let{ .variable = variable, .value = value } } };
     }
 
-    pub fn constructIf(condition: Expression, body: []Statement) Node {
+    pub fn constructIf(condition: *Expression, body: []Statement) Node {
         return Node{ .Statement = Statement{ .If = If{ .condition = condition, .body = body } } };
     }
 
-    pub fn constructWhile(condition: Expression, body: []Statement) Node {
+    pub fn constructWhile(condition: *Expression, body: []Statement) Node {
         return Node{ .Statement = Statement{ .While = While{ .condition = condition, .body = body } } };
     }
 
@@ -101,11 +101,11 @@ pub const AST = struct {
         return Node{ .Statement = Statement{ .Goto = Goto{ .label = label } } };
     }
 
-    pub fn constructBinaryOp(left: Expression, operator: []const u8, right: Expression) Node {
+    pub fn constructBinaryOp(left: *Expression, operator: []const u8, right: *Expression) Node {
         return Node{ .Expression = Expression{ .BinaryOp = BinaryOp{ .left = left, .operator = operator, .right = right } } };
     }
 
-    pub fn constructUnaryOp(operator: []const u8, operand: Expression) Node {
+    pub fn constructUnaryOp(operator: []const u8, operand: *Expression) Node {
         return Node{ .Expression = Expression{ .UnaryOp = UnaryOp{ .operator = operator, .operand = operand } } };
     }
 
@@ -121,17 +121,17 @@ pub const AST = struct {
         visit(node);
         switch (node) {
             .Statement => |stmt| switch (stmt) {
-                .Print => |print| self.traverse(print.value, visit),
+                .Print => |print| self.traverse(Node{ .Expression = print.value.* }, visit),
                 .Input => {},
-                .Let => |let| self.traverse(let.value, visit),
+                .Let => |let| self.traverse(Node{ .Expression = let.value.* }, visit),
                 .If => |if_stmt| {
-                    self.traverse(if_stmt.condition, visit);
+                    self.traverse(Node{ .Expression = if_stmt.condition.* }, visit);
                     for (if_stmt.body) |statement| {
                         self.traverse(Node{ .Statement = statement }, visit);
                     }
                 },
                 .While => |while_stmt| {
-                    self.traverse(while_stmt.condition, visit);
+                    self.traverse(Node{ .Expression = while_stmt.condition.* }, visit);
                     for (while_stmt.body) |statement| {
                         self.traverse(Node{ .Statement = statement }, visit);
                     }
@@ -141,10 +141,10 @@ pub const AST = struct {
             },
             .Expression => |expr| switch (expr) {
                 .BinaryOp => |bin_op| {
-                    self.traverse(Node{ .Expression = bin_op.left }, visit);
-                    self.traverse(Node{ .Expression = bin_op.right }, visit);
+                    self.traverse(Node{ .Expression = bin_op.left.* }, visit);
+                    self.traverse(Node{ .Expression = bin_op.right.* }, visit);
                 },
-                .UnaryOp => |unary_op| self.traverse(Node{ .Expression = unary_op.operand }, visit),
+                .UnaryOp => |unary_op| self.traverse(Node{ .Expression = unary_op.operand.* }, visit),
                 .Literal => {},
                 .Identifier => {},
             },
