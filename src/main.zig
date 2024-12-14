@@ -1,57 +1,71 @@
 const std = @import("std");
-const lexer = @import("lexer.zig");
-const parser = @import("parser.zig");
+const compiler = @import("compiler.zig");
 
 pub fn main() !void {
-    const source = "IFTHENMINUS+-123 foo*THEN/";
-    var l = lexer.Lexer.init(source);
-    var p = parser.Parser.init(&l);
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer {
+        const deinit_status = gpa.deinit();
+        if (deinit_status == .leak) @panic("Memory leak detected!");
+    }
+    const allocator = gpa.allocator();
 
-    try p.parse();
+    const source = try allocator.dupe(u8, "PRINT \"Hello, World!\"\n");
+    defer allocator.free(source);
+
+    var c = compiler.Compiler.init(allocator, source, "out.c");
+    try c.compile();
 }
 
 test "parser test" {
-    const source = "PRINT \"Hello, World!\"\n";
-    var l = lexer.Lexer.init(source);
-    var p = parser.Parser.init(&l);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
-    try p.parse();
+    const source = "PRINT \"Hello, World!\"\n";
+    var c = compiler.Compiler.init(allocator, source, "out.c");
+    try c.compile();
 }
 
 test "fibonacci program test" {
-    const source =
-        "PRINT \"How many fibonacci numbers do you want?\"\n" ++
-        "INPUT nums\n" ++
-        "PRINT \"\"\n" ++
-        "LET a = 0\n" ++
-        "LET b = 1\n" ++
-        "WHILE nums > 0 REPEAT\n" ++
-        "    PRINT a\n" ++
-        "    LET c = a + b\n" ++
-        "    LET a = b\n" ++
-        "    LET b = c\n" ++
-        "    LET nums = nums - 1\n" ++
-        "ENDWHILE\n";
-    var l = lexer.Lexer.init(source);
-    var p = parser.Parser.init(&l);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
-    try p.parse();
+    const source =
+        \\PRINT "How many fibonacci numbers do you want?"
+        \\INPUT nums
+        \\PRINT ""
+        \\LET a = 0
+        \\LET b = 1
+        \\WHILE nums > 0 REPEAT
+        \\    PRINT a
+        \\    LET c = a + b
+        \\    LET a = b
+        \\    LET b = c
+        \\    LET nums = nums - 1
+        \\ENDWHILE
+    ;
+    var c = compiler.Compiler.init(allocator, source, "out.c");
+    try c.compile();
 }
 
 test "all language grammar test" {
-    const source =
-        "PRINT \"Hello\"\n" ++
-        "INPUT x\n" ++
-        "LET y = 10\n" ++
-        "IF x == y THEN\n" ++
-        "    PRINT \"Equal\"\n" ++
-        "ENDIF\n" ++
-        "WHILE x < y REPEAT\n" ++
-        "    PRINT x\n" ++
-        "    LET x = x + 1\n" ++
-        "ENDWHILE\n";
-    var l = lexer.Lexer.init(source);
-    var p = parser.Parser.init(&l);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
-    try p.parse();
+    const source =
+        \\PRINT "Hello"
+        \\INPUT x
+        \\LET y = 10
+        \\IF x == y THEN
+        \\    PRINT "Equal"
+        \\ENDIF
+        \\WHILE x < y REPEAT
+        \\    PRINT x
+        \\    LET x = x + 1
+        \\ENDWHILE
+    ;
+    var c = compiler.Compiler.init(allocator, source, "out.c");
+    try c.compile();
 }

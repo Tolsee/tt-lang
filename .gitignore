@@ -1,2 +1,6 @@
 zig-out
 .zig-cache
+
+
+# Output files
+out.c

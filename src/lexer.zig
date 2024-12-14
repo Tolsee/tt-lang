@@ -69,13 +69,17 @@ pub const Lexer = struct {
         };
     }
 
-    fn nextChar(self: *Self) void {
-        self.curr_pos += 1;
-        if (self.curr_pos >= self.source.len) {
+    fn setCurrentChar(self: *Self) void {
+        if (self.curr_pos + 1 >= self.source.len) {
             self.curr_char = 0;
         } else {
             self.curr_char = self.source[self.curr_pos];
         }
+    }
+
+    fn nextChar(self: *Self) void {
+        self.curr_pos += 1;
+        self.setCurrentChar();
     }
 
     fn peek(self: *Self) u8 {
@@ -86,20 +90,34 @@ pub const Lexer = struct {
     }
 
     fn skipWhitespace(self: *Self) void {
-        while (self.curr_char != 0 and (self.curr_char == ' ' or self.curr_char == '\t')) {
-            self.nextChar();
+        while (self.curr_char != 0) {
+            switch (self.curr_char) {
+                ' ', '\t' => {
+                    self.nextChar();
+                },
+                else => break,
+            }
         }
     }
 
     fn skipComment(self: *Self) void {
         if (self.curr_char == '#') {
-            while (self.curr_char != 0 and self.curr_char != '\n') {
+            while (self.curr_char != 0) {
+                if (self.curr_char == '\n') {
+                    self.nextChar();
+                    break;
+                }
                 self.nextChar();
             }
         }
     }
 
     pub fn getToken(self: *Self) Token {
+        // Reset curr_char based on position
+        self.setCurrentChar();
+        std.debug.print("curr_pos: {d}, len: {d}\n", .{ self.curr_pos, self.source.len });
+        std.debug.print("curr_char: {d}\n", .{self.curr_char});
+
         self.skipWhitespace();
         self.skipComment();
 
@@ -178,6 +196,8 @@ pub const Lexer = struct {
             },
         };
 
+        std.debug.print("EOF: {}\n", .{token.type == .EOF});
+
         return token;
     }
 
@@ -216,6 +236,8 @@ pub const Lexer = struct {
 
         const text = self.source[startPos..self.curr_pos];
         const tokenType = checkIfKeyword(text);
+        std.debug.print("getIdentifier: {s}\n", .{text});
+        std.debug.print("curr_pos: {d}\n", .{self.curr_pos});
         return Token.init(tokenType, text);
     }
 };
