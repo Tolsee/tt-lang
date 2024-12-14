@@ -27,10 +27,12 @@ pub const Compiler = struct {
         try self.emitter.writeFile();
     }
 
-    fn emit(self: *Compiler, ast: ast_lib.AST) void {
+    fn emit(self: *Compiler, ast: []ast_lib.AST.Node) void {
         self.emitter.headerLine("#include <stdio.h>");
         self.emitter.headerLine("int main(void){");
-        self.emitter.emit(ast);
+        for (ast) |node| {
+            self.emitNode(node);
+        }
         self.emitter.emitLine("return 0;");
         self.emitter.emitLine("}");
     }
@@ -40,7 +42,7 @@ pub const Compiler = struct {
             .Statement => |stmt| switch (stmt) {
                 .Print => |print| {
                     self.emitter.emit("printf(\"%.2f\\n\", (float)(");
-                    self.emitNode(ast_lib.AST.Node{ .Expression = print.value });
+                    self.emitNode(ast_lib.AST.Node{ .Expression = print.value.* });
                     self.emitter.emitLine("));");
                 },
                 .Input => |input| {
@@ -51,12 +53,12 @@ pub const Compiler = struct {
                 },
                 .Let => |let| {
                     self.emitter.emit(let.variable.name ++ " = ");
-                    self.emitNode(ast_lib.AST.Node{ .Expression = let.value });
+                    self.emitNode(ast_lib.AST.Node{ .Expression = let.value.* });
                     self.emitter.emitLine(";");
                 },
                 .If => |if_stmt| {
                     self.emitter.emit("if(");
-                    self.emitNode(ast_lib.AST.Node{ .Expression = if_stmt.condition });
+                    self.emitNode(ast_lib.AST.Node{ .Expression = if_stmt.condition.* });
                     self.emitter.emitLine("){");
                     for (if_stmt.body) |statement| {
                         self.emitNode(ast_lib.AST.Node{ .Statement = statement });
@@ -65,7 +67,7 @@ pub const Compiler = struct {
                 },
                 .While => |while_stmt| {
                     self.emitter.emit("while(");
-                    self.emitNode(ast_lib.AST.Node{ .Expression = while_stmt.condition });
+                    self.emitNode(ast_lib.AST.Node{ .Expression = while_stmt.condition.* });
                     self.emitter.emitLine("){");
                     for (while_stmt.body) |statement| {
                         self.emitNode(ast_lib.AST.Node{ .Statement = statement });
@@ -81,13 +83,13 @@ pub const Compiler = struct {
             },
             .Expression => |expr| switch (expr) {
                 .BinaryOp => |bin_op| {
-                    self.emitNode(ast_lib.AST.Node{ .Expression = bin_op.left });
+                    self.emitNode(ast_lib.AST.Node{ .Expression = bin_op.left.* });
                     self.emitter.emit(bin_op.operator);
-                    self.emitNode(ast_lib.AST.Node{ .Expression = bin_op.right });
+                    self.emitNode(ast_lib.AST.Node{ .Expression = bin_op.right.* });
                 },
                 .UnaryOp => |unary_op| {
                     self.emitter.emit(unary_op.operator);
-                    self.emitNode(ast_lib.AST.Node{ .Expression = unary_op.operand });
+                    self.emitNode(ast_lib.AST.Node{ .Expression = unary_op.operand.* });
                 },
                 .Literal => |literal| {
                     self.emitter.emit(literal.value);
