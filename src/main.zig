@@ -1,5 +1,6 @@
 const std = @import("std");
 const compiler = @import("compiler.zig");
+const interpSource = @import("interpreter/source.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -9,11 +10,22 @@ pub fn main() !void {
     }
     const allocator = gpa.allocator();
 
-    const source = try allocator.dupe(u8, "PRINT \"Hello, World!\"\n");
-    defer allocator.free(source);
+    // Parse args into string array (error union needs 'try')
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
 
-    var c = compiler.Compiler.init(allocator, source, "out.c");
-    try c.compile();
+    if (args.len == 2) {
+        try interpSource.run(allocator, args[1]);
+    } else if (args.len == 1) {
+        // REPL
+        std.debug.print("REPL\n", .{});
+        std.debug.print("Yet to be implemented\n", .{});
+    }
+    // const source = try allocator.dupe(u8, "PRINT \"Hello, World!\"\n");
+    // defer allocator.free(source);
+
+    // var c = compiler.Compiler.init(allocator, source, "out.c");
+    // try c.compile();
 }
 
 test "parser test" {
